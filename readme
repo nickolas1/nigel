@@ -1,0 +1,33 @@
+n6tohdf5.py is supposed to parse through the binary dump OUT3 from an nbody6 run and separate it into individual snapshots. These are created in a standard (HDF5) format so that other people have a possibility of being able to read them. HDF5 is thus a requirement- it should be available on most administered machines. If you use a mac it's relatively pain free to get it using homebrew, and probably other popular package management tools as well. 
+
+A fairly standard python setup is required- numpy, matplotlib, etc. h5py is the also needed, it's easily installed with pip or whatever you usually do.
+
+HDF5:
+http://www.hdfgroup.org/HDF5/
+
+h5py:
+http://code.google.com/p/h5py/
+
+
+The hdf5 snapshots that are created can be inspected with h5dump. They contain a 'Header' group with information about the state of the simulation, and a 'Stars' group with datasets containing the stars' positions. The Header is basically the AS list from nbody6, containing the time, scalefactors, number of binaries, etc.
+
+The Stars group has Positions and Velocities as Nx3 arrays, and Names and Masses as arrays Nx1 arrays. You can optionally pass in the OUT33 file that contains tidal escapers- these will then be included in the hdf5 snapshot along with the remaining cluster members. 
+
+If you generated HR diagnostic information in fort.83, you can pass this in as well. This needs to be generated at the same times as the OUT3 dumps. Sometimes a star doesn't appear in fort.83 because it's part of a close encounter at the output time. In this case the last valid entry for that star is used. When fort.83 has been passed in and successfully dealt with, Luminosity and Teff are included in the Stars group as Nx1 arrays. 
+
+EXAMPLES:
+basic output with no tidal or HR files:
+./n6tohdf5.py OUT3
+
+with HR file:
+./n6tohdf5.py OUT3 --hr fort.83
+
+with tidal and HR files:
+./n6tohdf5.py OUT3 --t OUT33 --hr fort.83
+
+
+
+
+
+
+read_snapshot.py is an example of reading in one of the hdf5 snapshots and doing something with it. 
