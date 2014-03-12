@@ -5,7 +5,7 @@ import os
 import numpy as np
 
 
-sys.path.append('/Users/moeckel/Codes/n6tohdf5')
+sys.path.append('/Users/moeckel/Codes/')
 
 
 

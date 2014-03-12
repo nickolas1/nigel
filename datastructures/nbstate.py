@@ -1,41 +1,67 @@
 from __future__ import division
 from __future__ import absolute_import
 
-"""This module provides an interface for the HDF5 files created by n6tohdf5.
+"""This module provides storage for the state of an N-body simulation at some time
 
 Classes:
-Nbody6Snapshot -- container for the data in the HDF5 file
+NBodyState -- the state of an N-body simulation. stellar positions, masses, etc.
+              plus derived quantities like density center, lagrangian radii etc.
 
-Nbody6Subset -- a subclass of Nboy6Snapshot, used to analyse a subset of stars.
-
-Nbody6Header -- a class to grab just the header information.
+NBodySubset -- a subclass of Nboy6Snapshot, used to analyse a subset of stars selected
+               based on some physical criterion like mass, position, boundedness etc.
 """
+
 import numpy as np
 from scipy.spatial import cKDTree
 from .. import units as units
 
 
+class RangeError(Exception): 
+    pass
+
 
 class NBodyState(object):
-    """Read in an hdf5 snapshot from an nbody6 simulation.
+    """Store the state of an N-body simulation
     
-    All the information in the hdf5 file is read in and stored as numpy arrays. 
+    All the information in the snapshot file is read in and stored as numpy arrays. 
     Additional information is calculated, such as the radius of each star from the 
     center of the domain as well as the density center. 
     
-    Public functions:
-    calc_new_density_center -- self-contained density center calculation.
+    The attributes are populated by the datahandlers, e.g. nigelhdf5reader
     
-    calc_lagrangian_radii -- determine the Lagrangian radii of a snapshot.
-    
-    mass_selection -- get a Nbody6Subset based on a mass range.
-    
-    sphere_selection -- get a Nbody6Subset based on a spherical region.
-    
-    make_pretty_image_data -- get a 'realistic' rendering of the stars
+    Attributes:
+        n (int): number of stars in the snapshot
+        time (float): time of the snapshot in code units
+        rscale (float): position scaling from code units to cgs. R_cgs = rscale * R_code
+        vscale (float): velocity scaling from code units to cgs. V_cgs = vscale * V_code
+        mscale (float): mass scaling from code units to cgs. M_cgs = mscale * M_code
+        tscale (float): time scaling from code units to cgs. T_cgs = tscale * T_code
+        pos (numpy float array, shape(n, 3)): positions of the stars in code units.
+        vel (numpy float array, shape(n, 3)): velocities of the stars in code units.
+        mass (numpy float array, shape(n, )): masses of the stars in code units.
+        id (numpy int array, shape(n, )): unique id number of the stars.
+        luminosity(numpy float array, shape(n, )): luminosity of the stars in L_sun. 
+        temperature(numpy float array, shape(n, )): temperature of the stars in K. 
+        dc_pos (numpy float array, shape(3, )): density center of the stars. 
+        dc_vel (numpy float array, shape(3, )): velocity of the density center of the stars. 
+        radii_origin (numpy float array, shape(n, )): radius of each star from the origin in code units. 
+        radii_dc (numpy float array, shape(n, )): radius of each star from the density center in code units.
+        core_radius (float): core radius in code units.
+        core_density (float): core density in code units. 
+        core_n (int): number of stars in the core.
+        half_mass_radius (float): half-mass radius of the cluster in code units.
+        sigmas (numpy float array, shape(3, )): standard deviation of the velocities in code units.
+        x (numpy float array, shape(n, )): the x-positions of the stars in code units. 
+        y (numpy float array, shape(n, )): the y-positions of the stars in code units.
+        z (numpy float array, shape(n, )): the z-positions of the stars in code units. 
     """
     
     def __init__(self):
+        """Define empty storage for the N-body simulation state.
+        
+        Note that computationally intensive quantities like radii, core properties, etc.
+        are lazily created using properties.
+        """
         # number of stars
         self.n = None
            
@@ -195,29 +221,52 @@ class NBodyState(object):
             self._z = self.pos[:,2]
         return self._z                   
      
+     
     def rescale_length(self, scale):
-        """ Rescale the simulation to a new characteristic length.
+        """Rescale the simulation to a new characteristic length.
         
-        Arguments:
-        scale -- the new scale length of the simulation in nbody units 
+        Args:
+            scale (float): the new length scale 
         """
-        self.tscale *= (scale / self.rscale)**1.5 
-        self.rscale = scale
-        
-        
-    def find_density_center(self):
-        """Calculate the density center of a set of stars
+        try:
+            scale = float(scale)
+            if scale <= 0:
+                raise RangeError
+            self.tscale *= (scale / self.rscale)**1.5 
+            self.rscale = scale
+        except TypeError:
+            print "bad scale value passed to rescale_length; leaving the scale alone."
+        except RangeError:
+            print "scale needs to be greater than zero; leaving the scale alone."
+            
+    def _get_local_densities(self):
+        """Calculate the local stellar density.
         
         Uses the method of Casertano & Hut ApJ 1985, 298, 80. 
+        This is used to calculate the density centers.
+        
+        Returns:
+            numpy float array, shape(n, ) containing density for each star in code units
         """
+        n_neighbors = 7
+        if self.n < 7:
+            print "Warning! There are only %d stars!" %(self.n)
+            print "Calculating density center using %d neighbors."
+            n_neighbors = self.n
+            
         #  get a nearest neighbor tree  
         kdtree = cKDTree(self.pos)    
         # the first result is the point itself, so sixth neighbor is the seventh result
-        (dists, indices) = kdtree.query(self.pos, 7)
-        near6 = kdtree.query(self.pos, 7)[0][:,6] # distance to 6th nearest neighbor
+        (dists, indices) = kdtree.query(self.pos, n_neighbors)
+        near6 = kdtree.query(self.pos, n_neighbors)[0][:,n_neighbors - 1] # distance to 6th nearest neighbor
         vols = near6**3   # no need for 4/3 pi I guess
-        masses = self.mass[indices[:,1:6]].sum(axis=1) # total mass of 5 nearest neighbors
-        densities = masses / vols 
+        masses = self.mass[indices[:,1:n_neighbors - 1]].sum(axis=1) # total mass of 5 nearest neighbors
+        densities = masses / vols
+        return densities
+        
+    def find_density_center(self):
+        """Calculate and set the density center and velocity the stars"""
+        densities = self._get_local_densities() 
         # density center is density weighted radius of the stars
         self._dc_pos = (densities[:,np.newaxis] * self.pos).sum(axis=0) / densities.sum()    
         self._dc_vel = (densities[:,np.newaxis] *   \
@@ -228,17 +277,17 @@ class NBodyState(object):
     
     
     def _find_radii_from_density_center(self):
-        """Calculate radii from the density center"""
+        """Calculate and set radii from the density center"""
         self._radii_dc = np.linalg.norm(self.pos - self.dc_pos, axis=1)
     
     
     def _find_core_properties(self):
         """Calculate the core radius of the cluster. This also sets core density and n"""
-        pass    
+        raise NotImplementedError   
     
     def _find_half_mass_radius(self):
         """Calculate the half mass radius of the cluster from the density center."""
-        pass
+        raise NotImplementedError   
     
     
     
@@ -268,7 +317,7 @@ class NBodySubset(NBodyState):
         self.luminosity = nbstate.luminosity[selection]
         self.temperature = nbstate.temperature[selection]        
             
-        self.nstars = len(self.id)    
+        self.n = len(self.id)    
             
         # time and in Nbody
         self.time = nbstate.time
@@ -310,27 +359,8 @@ class NBodySubset(NBodyState):
         return self._radii_dc_subset
     
     def find_density_center_subset(self):
-        """Calculate the density center of a set of stars
-        
-        Uses the method of Casertano & Hut ApJ 1985, 298, 80. 
-        """
-        if self.nstars < 7:
-            print "Warning! There are only %d stars in this subset!" %(self.nstars)
-            print "Calculating density center using %d neighbors."
-            self._dc_pos_subset = (self.mass[:,np.newaxis] *   \
-                self.pos).sum(axis=0) / self.mass.sum()
-            self._dc_vel_subset = (self.mass[:,np.newaxis] *   \
-                self.vel).sum(axis=0) / self.mass.sum()
-            return
-                
-        #  get a nearest neighbor tree  
-        kdtree = cKDTree(self.pos)    
-        # the first result is the point itself, so sixth neighbor is the seventh result
-        (dists, indices) = kdtree.query(self.pos, 7)
-        near6 = kdtree.query(self.pos, 7)[0][:,6] # distance to 6th nearest neighbor
-        vols = near6**3   # no need for 4/3 pi I guess
-        masses = self.mass[indices[:,1:6]].sum(axis=1) # total mass of 5 nearest neighbors
-        densities = masses / vols 
+        """Calculate the density center and velocity of a subset of stars."""
+        densities = self._get_local_densities() 
         # density center is density weighted radius of the stars
         self._dc_pos_subset = (densities[:,np.newaxis] *   \
             self.pos).sum(axis=0) / densities.sum()    

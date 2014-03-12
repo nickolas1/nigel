@@ -35,6 +35,7 @@ def MassSelection(nbstate, mlow = None, mhigh = None):
     selection = (self.masses >= mlow) & (self.masses <= mhigh)
     if selection.sum() == 0:
         print 'WARNING: No stars are in the mass range!'
+        print '       : selection failed, returning None'
         return None
     else:
         return NBodySubset(nbstate, nbstate.id[selection])            
@@ -64,7 +65,8 @@ def SphereSelection(nbstate, origin = [0, 0, 0], radius = 1.0):
         rads = np.linalg.norm(self.pos - origin, axis=0)
     selection = (rads <= radius)
     if selection.sum() == 0:
-        print 'WARNING! No stars are in the requested sphere!'
+        print 'WARNING: No stars are in the requested sphere!'
+        print '       : selection failed, returning None'
         return None
     else:
         return NBodySubset(nbstate, nbstate.id[selection])            
