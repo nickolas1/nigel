@@ -12,6 +12,9 @@ sys.path.append('/Users/moeckel/Codes/')
 # get packages
 from .datahandlers.nigelhdf5reader import \
     NigelHDF5State
+    
+from .datahandlers.testreader import \
+    TestState
   
 from .datastructures.nbstate import \
     NBodyState, NBodySubset
@@ -23,7 +26,7 @@ from .visualization.rendering import \
     Camera
 
 # supported file types
-_outputtypes = [NigelHDF5State]
+_outputtypes = [NigelHDF5State, TestState]
     
 def load(infile):
     for outputtype in _outputtypes:
