@@ -258,8 +258,7 @@ class NBodyState(object):
         kdtree = cKDTree(self.pos)    
         # the first result is the point itself, so sixth neighbor is the seventh result
         (dists, indices) = kdtree.query(self.pos, n_neighbors)
-        near6 = kdtree.query(self.pos, n_neighbors)[0][:,n_neighbors - 1] # distance to 6th nearest neighbor
-        vols = near6**3   # no need for 4/3 pi I guess
+        vols = dists[:,n_neighbors - 1]**3   # no real need for 4/3 pi I guess
         masses = self.mass[indices[:,1:n_neighbors - 1]].sum(axis=1) # total mass of 5 nearest neighbors
         densities = masses / vols
         return densities
@@ -314,9 +313,15 @@ class NBodySubset(NBodyState):
         self.vel = nbstate.vel[selection]
         self.mass = nbstate.mass[selection]
         self.id = nbstate.id[selection]
-        self.luminosity = nbstate.luminosity[selection]
-        self.temperature = nbstate.temperature[selection]        
-            
+        if nbstate.luminosity != None:
+            self.luminosity = nbstate.luminosity[selection]
+        else:
+            self.luminosity = None
+        if self.temperature != None:
+            self.temperature = nbstate.temperature[selection]        
+        else:
+            self.temperature = None
+                
         self.n = len(self.id)    
             
         # time and in Nbody

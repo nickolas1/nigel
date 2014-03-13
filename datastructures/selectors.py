@@ -11,28 +11,29 @@ import numpy as np
 from .nbstate import NBodySubset
 
 def MassSelection(nbstate, mlow = None, mhigh = None):
-    """make a subset of stars based on a mass range
-    
-    Arguments:
-    nbstate -- a valid NBodyState instance
-    mlow -- lower mass range in code units. default: minimum mass
-    mhigh -- upper mass range in code units. default: maximum mass
-    
-    Returns:
-    NBodySubset containing the stars in the requested mass range
+    """Select a subset of stars based on mass ranges.
+        
+        Args:
+            nbstate (NBodyState): a valid NBodyState object
+            mlow (float): the lower mass cutoff in code units.
+                            Default is the minimum stellar mass in the NbodyState.
+            mhigh (float): the upper mass cutoff in code units.
+                            Default is the maximum stellar mass in the NbodyState.
+        Returns:
+            NBodySubset: a subset containing all lying between the mass limits, inclusive.
     """
     if mlow is None:
-        mlow = self.masses.min()
+        mlow = nbstate.mass.min()
     else:
-        if mlow < self.masses.min():
+        if mlow < nbstate.mass.min():
             print 'WARNING: specified lower mass cut is below the minimum mass star'
     if mhigh is None:
-        mhigh = self.masses.max()
+        mhigh = nbstate.mass.max()
     else:
-        if mhigh > self.masses.max():
+        if mhigh > nbstate.mass.max():
             print 'WARNING: specified upper mass cut is above the maximum mass star'
 
-    selection = (self.masses >= mlow) & (self.masses <= mhigh)
+    selection = (nbstate.mass >= mlow) & (nbstate.mass <= mhigh)
     if selection.sum() == 0:
         print 'WARNING: No stars are in the mass range!'
         print '       : selection failed, returning None'
@@ -42,14 +43,16 @@ def MassSelection(nbstate, mlow = None, mhigh = None):
 
 
 def SphereSelection(nbstate, origin = [0, 0, 0], radius = 1.0):
-    """make a spherical subset of stars
-    
-    Arguments:
-    origin -- origin of the spherical region. default: [0, 0, 0]
-    radius -- radius range in code units of the spherical region
-    
-    Returns:
-    Nbody6Subset containing the stars in the requested mass range
+    """Select a spherical subset of stars.
+        
+        Args:
+            nbstate (NBodyState): a valid NBodyState object
+            origin (list): the origin of the sphere in code units. defaults to the origin
+                           can also accept strings 'origin', 'o', '0' for origin, or 'c',
+                           'dc' for the nbstate density center.
+            radius (float): the radius of the spherical selection in code units.
+        Returns:
+            NBodySubset: a subset containing all stars in the specified sphere.
     """
     if isinstance(origin, basestring):
         if (origin == 'origin') | (origin == 'o') | (origin == '0'):
@@ -62,14 +65,16 @@ def SphereSelection(nbstate, origin = [0, 0, 0], radius = 1.0):
     elif np.allclose(origin, nbstate.dc_pos):
         rads = nbstate.radii_dc
     else:
-        rads = np.linalg.norm(self.pos - origin, axis=0)
+        rads = np.linalg.norm(nbstate.pos - origin, axis=1)
+
     selection = (rads <= radius)
     if selection.sum() == 0:
         print 'WARNING: No stars are in the requested sphere!'
         print '       : selection failed, returning None'
         return None
     else:
-        return NBodySubset(nbstate, nbstate.id[selection])            
+        return NBodySubset(nbstate, nbstate.id[selection])         
+           
         
 def BoundSelection(self, lagrangecut = 0.9):
     """make a subset of stars that are probably bound.
