@@ -210,15 +210,13 @@ def read_nbody6(filename, filenamehr = None, filenametidal = None):
                 
                 
         # put into order by name
-        print "presort", min(stardata[:,7]),len(stardata),stardata[:,7]
         stardata = stardata[ stardata[:,7].argsort() ]
-       
         # restrict to names in the range [1, nstars]   
         stardata = stardata[0 < stardata[:,7]]
-        stardata = stardata[stardata[:,7] <= ntot - alist[1]]
+        # remove binary centers of mass
+        stardata = stardata[:ntot - alist[1],:]
         maxname = int(stardata[:,7].max())
-        print "postsort", len(stardata),stardata[:,7]
-        print ntot, alist[1]
+
         if HR:
             # now find the luminosity and Teff for these stars
             # after itime = 0 the leading line at each time is already read below.
