@@ -82,9 +82,6 @@ def read_nbody6(filename, filenamehr = None, filenametidal = None):
         if itime == 0:
             ntotorig = ntot #sometimes there are immediate escapers, so include a 
                                 #small buffer here in calculating the max number of stars.
-        
-        if itime == 0:
-            ntotorig = ntot 
         if tidal and ntot < ntotorig:
             # this triggers tidal reading once we have some escapers
             tidalstart = True
@@ -107,7 +104,6 @@ def read_nbody6(filename, filenamehr = None, filenametidal = None):
         
         if itime == 0:
             ntotorig = ntot + ntidal
-        #    ntotorig = 1.1*ntot
 
         blocksize2 = struct.unpack('i',f.read(4))[0] #end header block size
         if extra == 1:
@@ -214,13 +210,15 @@ def read_nbody6(filename, filenamehr = None, filenametidal = None):
                 
                 
         # put into order by name
-        stardata = np.array(sorted(stardata, key = lambda list: list[7]))
-
+        print "presort", min(stardata[:,7]),len(stardata),stardata[:,7]
+        stardata = stardata[ stardata[:,7].argsort() ]
+       
         # restrict to names in the range [1, nstars]   
         stardata = stardata[0 < stardata[:,7]]
         stardata = stardata[stardata[:,7] <= ntot - alist[1]]
         maxname = int(stardata[:,7].max())
-        
+        print "postsort", len(stardata),stardata[:,7]
+        print ntot, alist[1]
         if HR:
             # now find the luminosity and Teff for these stars
             # after itime = 0 the leading line at each time is already read below.
@@ -284,6 +282,7 @@ def read_nbody6(filename, filenamehr = None, filenametidal = None):
         byte = f.read(4) # begin header block
         if tidalstart:
             bytet = ft.read(4)
+        
                           
     # close OUT3 and other files if present
     f.close()
@@ -303,6 +302,9 @@ def h5output(outputfilename, alist, splitarray):
        alist -- header data from the nbody6 data. this is sverre's AS list.
        splitarray -- the data that has been parsed from the nbody6 files
     """
+    
+    floattype = np.float32
+    
     # open up the hdf5 file!
     f5 = h5py.File(outputfilename,'w')
     
@@ -311,14 +313,14 @@ def h5output(outputfilename, alist, splitarray):
     headgrp = f5.create_group("Header")
     
     # populate the groups with data
-    massdset = stargrp.create_dataset('Masses', data = splitarray[0])
-    posdset = stargrp.create_dataset('Positions', data = splitarray[1])
-    veldset = stargrp.create_dataset('Velocities', data = splitarray[2])
-    namedset = stargrp.create_dataset('Names', data = splitarray[3]) 
+    massdset = stargrp.create_dataset('Masses', data = splitarray[0], dtype=floattype)
+    posdset = stargrp.create_dataset('Positions', data = splitarray[1], dtype=floattype)
+    veldset = stargrp.create_dataset('Velocities', data = splitarray[2], dtype=floattype)
+    namedset = stargrp.create_dataset('Names', data = splitarray[3], dtype=np.int32) 
 
     if len(splitarray) > 4:
-        lumdset = stargrp.create_dataset('Luminosity', data = splitarray[4]) 
-        teffdset = stargrp.create_dataset('Teff', data = splitarray[5]) 
+        lumdset = stargrp.create_dataset('Luminosity', data = splitarray[4], dtype=floattype) 
+        teffdset = stargrp.create_dataset('Teff', data = splitarray[5], dtype=floattype) 
      
         
     if alist[0] == -1:

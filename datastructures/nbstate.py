@@ -286,7 +286,13 @@ class NBodyState(object):
     
     def _find_half_mass_radius(self):
         """Calculate the half mass radius of the cluster from the density center."""
-        raise NotImplementedError   
+        radSort = self.radii_dc.argsort()
+        massByRad = self.mass[radSort]
+        cumulativeMass = np.cumsum(massByRad)
+        radByRad = self.radii_dc[radSort]
+        totMass = cumulativeMass[-1]
+        self._half_mass_radius = np.interp(totMass / 2, cumulativeMass, radByRad)
+
     
     
     
@@ -378,5 +384,7 @@ class NBodySubset(NBodyState):
     def _find_radii_from_density_center_subset(self):
         """Calculate radii from the density center"""
         self._radii_dc_subset = np.linalg.norm(self.pos - self.dc_pos_subset, axis=1)
+        
+
     
         
