@@ -50,7 +50,7 @@ $ innerHalf.n
 $ np.sum(innerHalf.mass)
 0.4992601
 ```
-####velocity dispersion of high and low mass stars
+####velocity dispersion of high mass stars
 Most things you can do with the full set of stars you can do with selections. Here's the velocity dispersions of stars more massive than 10 times the median mass:
 ```
 $ medianMass = np.median(nb.mass)
