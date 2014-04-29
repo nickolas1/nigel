@@ -292,6 +292,7 @@ class NBodyState(object):
         radByRad = self.radii_dc[radSort]
         totMass = cumulativeMass[-1]
         self._half_mass_radius = np.interp(totMass / 2, cumulativeMass, radByRad)
+        # a similar method should be used to make lagrangian radii...
 
     
     
